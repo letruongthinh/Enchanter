@@ -1,0 +1,5 @@
+name: Enchanter
+version: ${project.version}
+main: io.gtihub.lethinh.enchanter.Enchanter
+authors: [Nesfan]
+description: Plugin enchanter for mine j do
