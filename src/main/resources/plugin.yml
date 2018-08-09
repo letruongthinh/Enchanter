@@ -1,5 +1,5 @@
-name: Enchanter
+name: LeagueCraft
 version: ${project.version}
-main: io.gtihub.lethinh.enchanter.Enchanter
+main: io.gtihub.lethinh.leaguecraft.LeagueCraft
 authors: [Nesfan]
 description: Plugin enchanter for mine j do
