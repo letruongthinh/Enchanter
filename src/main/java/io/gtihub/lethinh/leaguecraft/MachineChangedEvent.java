@@ -19,6 +19,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType.SlotType;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
@@ -30,7 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Backend of my Mantle plugin, too lazy to recode shits
- *
+ * <p>
  * Created by Le Thinh
  */
 public class MachineChangedEvent implements Listener {
@@ -78,7 +79,7 @@ public class MachineChangedEvent implements Listener {
             if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
                 event.setDropItems(false);
 
-                for (ItemStack stack : LeagueCraft.instance.stacks) {
+                for (ItemStack stack : LeagueCraft.getPlugin(LeagueCraft.class).stacks) {
                     if (stack.getItemMeta().getLocalizedName().replace("leaguecraft_", "")
                             .equalsIgnoreCase(machine.machineType.getName())) {
                         machine.dropItems(stack);
@@ -114,13 +115,13 @@ public class MachineChangedEvent implements Listener {
 
                             CopyOnWriteArrayList<String> players = interactPos.get(location);
 
-                                if (players == null || players.isEmpty()) {
-                                    players = new CopyOnWriteArrayList<>(new String[]{name});
-                                } else {
-                                    players.addAll(new CopyOnWriteArrayList<>(new String[]{name}));
-                                }
+                            if (players == null || players.isEmpty()) {
+                                players = new CopyOnWriteArrayList<>(new String[]{name});
+                            } else {
+                                players.addAll(new CopyOnWriteArrayList<>(new String[]{name}));
+                            }
 
-                                interactPos.put(location, players);
+                            interactPos.put(location, players);
                         }
                     } else {
                         player.sendMessage(ChatColor.RED + "You cannot open this machine because it is locked!");
@@ -184,6 +185,13 @@ public class MachineChangedEvent implements Listener {
                     }
                 }
             }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerJoined(PlayerJoinEvent event) {
+        for (ItemStack stack : LeagueCraft.getPlugin(LeagueCraft.class).stacks) {
+            event.getPlayer().getInventory().addItem(stack);
         }
     }
 

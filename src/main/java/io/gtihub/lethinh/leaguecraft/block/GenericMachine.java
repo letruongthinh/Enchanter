@@ -27,7 +27,7 @@ public enum GenericMachine {
     }
 
     public ItemStack getStackForBlock() {
-        for (ItemStack stack : LeagueCraft.stacks) {
+        for (ItemStack stack : LeagueCraft.getPlugin(LeagueCraft.class).stacks) {
             if (!stack.getType().isBlock()) {
                 continue;
             }

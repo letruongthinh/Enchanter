@@ -4,7 +4,6 @@
 
 package io.gtihub.lethinh.leaguecraft;
 
-import io.gtihub.lethinh.leaguecraft.recipe.RecipeLoader;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -24,14 +23,9 @@ import java.util.List;
  */
 public final class LeagueCraft extends JavaPlugin {
 
-    public static LeagueCraft instance;
-
     public List<ItemStack> stacks;
     public ItemStack enchanter;
-    public ItemStack enchantPedestal;
-    public ItemStack enchantStoneLevel1;
-    public ItemStack enchantStoneLevel2;
-    public ItemStack enchantStoneLevel3;
+    public final ItemStack enchantStoneLevels[] = new ItemStack[50];
     public ItemStack enchantLuckStone;
     public ItemStack enchantKeepStone;
 
@@ -39,18 +33,24 @@ public final class LeagueCraft extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        instance = this;
-
         if (!getDataFolder().exists()) {
             getDataFolder().mkdirs();
         }
 
         configuration = new Configuration(this);
-        configuration.load(new File(getDataFolder(), "league_craft.yml"));
 
         registerStacks();
-        RecipeLoader.init();
-        IOMachines.loadMachines();
+
+        configuration.load(new File(getDataFolder(), "league_craft.yml"));
+
+        IOMachines.loadMachines(this);
+
+        try {
+            IOMachines.loadMachinesData(this);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         getServer().getPluginManager().registerEvents(new MachineChangedEvent(), this);
     }
 
@@ -58,7 +58,8 @@ public final class LeagueCraft extends JavaPlugin {
     public void onDisable() {
         try {
             // lazy af to do the log
-            IOMachines.saveMachines();
+            IOMachines.saveMachines(this);
+            IOMachines.saveMachinesData(this);
             configuration.save(new File(getDataFolder(), "league_craft.yml"));
         } catch (IOException e) {
             e.printStackTrace();
@@ -87,67 +88,30 @@ public final class LeagueCraft extends JavaPlugin {
 
         stacks.add(enchanter);
 
-        enchantPedestal = new ItemStack(Material.ANVIL);
-
-
-        {
-            ItemMeta meta = enchantPedestal.getItemMeta();
-            meta.setLocalizedName("leaguecraft_enchant_pedestal");
-            meta.setDisplayName(ChatColor.DARK_BLUE + "Enchant Pedestal");
-            meta.addEnchant(Enchantment.LUCK, 10, true);
-            enchantPedestal.setItemMeta(meta);
+        for (int i = 0; i < enchantStoneLevels.length; ++i) {
+            ItemStack enchantStone = new ItemStack(Material.EMERALD);
+            ItemMeta meta = enchantStone.getItemMeta();
+            int level = i + 1;
+            meta.setLocalizedName("leaguecraft_enchant_stone_level_" + level);
+            meta.setDisplayName(configuration.getStackName("enchant_stone_level_" + level));
+            meta.setLore(configuration.getStackLore("enchant_stone_level_" + level));
+            meta.addEnchant(Enchantment.DAMAGE_ALL, level, true);
+            meta.addEnchant(Enchantment.DAMAGE_UNDEAD, level, true);
+            enchantStone.setItemMeta(meta);
+            enchantStoneLevels[i] = enchantStone;
+            stacks.add(enchantStone);
         }
 
-        stacks.add(enchantPedestal);
-
-        enchantStoneLevel1 = new ItemStack(Material.EMERALD);
-
-        {
-            ItemMeta meta = enchantStoneLevel1.getItemMeta();
-            meta.setLocalizedName("leaguecraft_enchant_stone_level_1");
-            meta.setDisplayName(configuration.getStackName(enchantStoneLevel1));
-            meta.setLore(configuration.getStackLore(enchantStoneLevel1));
-            meta.addEnchant(Enchantment.DAMAGE_ALL, 3, true);
-            meta.addEnchant(Enchantment.DAMAGE_UNDEAD, 3, true);
-        }
-
-        stacks.add(enchantStoneLevel1);
-
-        enchantStoneLevel2 = new ItemStack(Material.EMERALD);
-
-        {
-            ItemMeta meta = enchantStoneLevel2.getItemMeta();
-            meta.setLocalizedName("leaguecraft_enchant_stone_level_2");
-            meta.setDisplayName(configuration.getStackName(enchantStoneLevel2));
-            meta.setLore(configuration.getStackLore(enchantStoneLevel2));
-            meta.addEnchant(Enchantment.DAMAGE_ALL, 6, true);
-            meta.addEnchant(Enchantment.DAMAGE_UNDEAD, 6, true);
-        }
-
-        stacks.add(enchantStoneLevel2);
-
-        enchantStoneLevel3 = new ItemStack(Material.EMERALD);
-
-        {
-            ItemMeta meta = enchantStoneLevel3.getItemMeta();
-            meta.setLocalizedName("leaguecraft_enchant_stone_level_3");
-            meta.setDisplayName(configuration.getStackName(enchantStoneLevel3));
-            meta.setLore(configuration.getStackLore(enchantStoneLevel3));
-            meta.addEnchant(Enchantment.DAMAGE_ALL, 10, true);
-            meta.addEnchant(Enchantment.DAMAGE_UNDEAD, 10, true);
-        }
-
-        stacks.add(enchantStoneLevel3);
-
-        enchantKeepStone = new ItemStack(Material.IRON_INGOT);
+        enchantKeepStone = new ItemStack(Material.DIAMOND);
 
         {
             ItemMeta meta = enchantKeepStone.getItemMeta();
             meta.setLocalizedName("leaguecraft_enchant_keep_stone");
-            meta.setDisplayName(configuration.getStackName(enchantKeepStone));
-            meta.setLore(configuration.getStackLore(enchantKeepStone));
-            meta.addEnchant(Enchantment.DAMAGE_ALL, 10, true);
-            meta.addEnchant(Enchantment.DAMAGE_UNDEAD, 10, true);
+            meta.setDisplayName(configuration.getStackName("enchant_keep_stone"));
+            meta.setLore(configuration.getStackLore("enchant_keep_stone"));
+            meta.addEnchant(Enchantment.LOOT_BONUS_MOBS, 10, true);
+            meta.addEnchant(Enchantment.LOOT_BONUS_BLOCKS, 10, true);
+            enchantKeepStone.setItemMeta(meta);
         }
 
         stacks.add(enchantKeepStone);
@@ -157,10 +121,11 @@ public final class LeagueCraft extends JavaPlugin {
         {
             ItemMeta meta = enchantLuckStone.getItemMeta();
             meta.setLocalizedName("leaguecraft_enchant_luck_stone");
-            meta.setDisplayName(configuration.getStackName(enchantLuckStone));
-            meta.setLore(configuration.getStackLore(enchantLuckStone));
+            meta.setDisplayName(configuration.getStackName("enchant_luck_stone"));
+            meta.setLore(configuration.getStackLore("enchant_luck_stone"));
             meta.addEnchant(Enchantment.LOOT_BONUS_MOBS, 10, true);
             meta.addEnchant(Enchantment.LOOT_BONUS_BLOCKS, 10, true);
+            enchantLuckStone.setItemMeta(meta);
         }
 
         stacks.add(enchantLuckStone);

@@ -73,7 +73,7 @@ public class BlockMachine {
             if (tickStopped) {
                 runnable.cancel();
             } else {
-                handleUpdate(LeagueCraft.instance);
+                handleUpdate(LeagueCraft.getPlugin(LeagueCraft.class));
             }
         }
     }
