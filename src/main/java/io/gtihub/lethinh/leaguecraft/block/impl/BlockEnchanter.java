@@ -76,6 +76,11 @@ public class BlockEnchanter extends BlockMachine {
         if (resetTimer) {
             timer.reset();
             resetTimer = false;
+
+            for (int i = 12; i < 15; ++i) {
+                inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE));
+            }
+
             return;
         }
 
@@ -84,7 +89,7 @@ public class BlockEnchanter extends BlockMachine {
         // Calculate next item level
         ItemMeta meta = toEnchant.getItemMeta();
 
-        Pattern pattern = Pattern.compile("\\[\\d+]$");
+        Pattern pattern = Pattern.compile("\\[(\\d+)\\]");
         String input;
 
         if (meta.hasDisplayName()) {
@@ -97,13 +102,9 @@ public class BlockEnchanter extends BlockMachine {
         int[] curItemLevel = new int[]{0};// Not thread-safe
         Matcher matcher = pattern.matcher(input);
 
-        if (matcher.matches()) {
-            for (int i = 0; i < matcher.groupCount(); ++i) {
-                System.out.print(i + " ");
-            }
-
+        if (matcher.find()) {
             curItemLevel[0] = Integer.parseInt(matcher.group(1));
-            meta.setDisplayName(matcher.replaceAll("") + " [" + curItemLevel[0] + 1 + "]");
+            meta.setDisplayName(matcher.replaceAll("[" + (curItemLevel[0] + 1) + "]"));
         } else {
             meta.setDisplayName(input + " [1]");
         }
@@ -169,7 +170,6 @@ public class BlockEnchanter extends BlockMachine {
         }
 
         for (int i = 12; i < 15; ++i) {
-            HELPER_SLOTS.add(i);
             inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE));
         }
 
@@ -185,7 +185,6 @@ public class BlockEnchanter extends BlockMachine {
         }
 
         for (int i = 12; i < 15; ++i) {
-            HELPER_SLOTS.add(i);
             inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE));
         }
 
