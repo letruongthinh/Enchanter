@@ -4,6 +4,7 @@
 
 package io.gtihub.lethinh.leaguecraft;
 
+import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
@@ -13,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Configuration {
 
@@ -46,8 +48,8 @@ public class Configuration {
         for (int i = 0; i < plugin.enchantStoneLevels.length; ++i) {
             ItemStack enchantStone = plugin.enchantStoneLevels[i];
             ItemMeta meta = enchantStone.getItemMeta();
-            meta.setDisplayName(getStackName("enchant_stone_level" + (i + 1)));
-            meta.setLore(getStackLore("enchant_stone_level" + (i + 1)));
+            meta.setDisplayName(getStackName("enchant_stone_level_" + (i + 1)));
+            meta.setLore(getStackLore("enchant_stone_level_" + (i + 1)));
             plugin.enchantStoneLevels[i].setItemMeta(meta);
         }
     }
@@ -57,19 +59,20 @@ public class Configuration {
     }
 
     public String getStackName(String stack) {
-        return config.getString(stack);
+        return ChatColor.translateAlternateColorCodes('&', config.getString(stack + "_name"));
     }
 
     public void setStackName(String stack, String name) {
-        config.set(stack, name);
+        config.set(stack + "_name", name);
     }
 
     public List<String> getStackLore(String stack) {
-        return config.getStringList(stack);
+        return config.getStringList(stack + "_lore").stream()
+                .map(s -> ChatColor.translateAlternateColorCodes('&', s)).collect(Collectors.toList());
     }
 
     public void setStackLore(String stack, String... lore) {
-        config.set(stack, Arrays.asList(lore));
+        config.set(stack + "_lore", Arrays.asList(lore));
     }
 
     public FileConfiguration getConfig() {

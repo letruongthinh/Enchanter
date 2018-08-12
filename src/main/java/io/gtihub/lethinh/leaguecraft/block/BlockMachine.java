@@ -99,7 +99,7 @@ public class BlockMachine {
     /**
      * Run {@code runnable} synchronously or asynchronously
      *
-     * @param plugin Instance of Mantle plugin
+     * @param plugin Instance of LeagueCraft plugin
      */
     public void handleUpdate(LeagueCraft plugin) {
 

@@ -12,5 +12,4 @@ public interface IEnchantRecipe<T> {
 
     ItemStack[] getIngredients();
 
-
 }

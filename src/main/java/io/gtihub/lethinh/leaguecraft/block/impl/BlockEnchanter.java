@@ -5,11 +5,15 @@
 package io.gtihub.lethinh.leaguecraft.block.impl;
 
 import io.gtihub.lethinh.leaguecraft.LeagueCraft;
+import io.gtihub.lethinh.leaguecraft.Timer;
 import io.gtihub.lethinh.leaguecraft.block.BlockMachine;
 import io.gtihub.lethinh.leaguecraft.block.GenericMachine;
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryType;
@@ -17,7 +21,10 @@ import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -34,7 +41,9 @@ public class BlockEnchanter extends BlockMachine {
     private static final short KEEP_ENCHANT = 43;
 
     private final Random random = new Random();
-    private boolean successful = true;
+    private final Timer timer = new Timer();
+    private boolean resetTimer = true;
+    private short damage = 0;
 
     public BlockEnchanter(Block block, String... players) {
         super(GenericMachine.ENCHANTER, block, 54, "Enchanter", players);
@@ -46,115 +55,154 @@ public class BlockEnchanter extends BlockMachine {
             HELPER_SLOTS.add(i);
             inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE));
         }
+
+        for (int i = 27; i < inventory.getSize(); ++i) {
+            if (i >= INGREDIENTS_START && i <= INGREDIENTS_END || i == LUCK_INCREASE || i == KEEP_ENCHANT) {
+                continue;
+            }
+
+            HELPER_SLOTS.add(i);
+            inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE));
+        }
+    }
+
+    @Override
+    public void handleUpdate(LeagueCraft plugin) {
+        runnable.runTaskTimerAsynchronously(plugin, DEFAULT_DELAY, DEFAULT_PERIOD);
     }
 
     @Override
     public void work() {
+        if (resetTimer) {
+            timer.reset();
+            resetTimer = false;
+            return;
+        }
+
         ItemStack toEnchant = inventory.getItem(TO_ENCHANT);
 
         // Calculate next item level
-        LeagueCraft plugin = LeagueCraft.getPlugin(LeagueCraft.class);
-        int combinedLevel = 0;
+        ItemMeta meta = toEnchant.getItemMeta();
 
-        List<Integer> testLevels = IntStream.rangeClosed(INGREDIENTS_START, INGREDIENTS_END).mapToObj(i -> inventory.getItem(i))
-                .filter(stack -> stack != null && plugin.stacks.stream()
-                        .anyMatch(s -> s.getItemMeta().getLocalizedName().equals(stack.getItemMeta().getLocalizedName())))
-                .mapToInt(stack -> Integer.parseInt(stack.getItemMeta().getLocalizedName().substring("leaguecraft_enchant_stone_level_".length())))
-                .boxed().collect(Collectors.toList());
+        Pattern pattern = Pattern.compile("\\[\\d+]$");
+        String input;
 
-        for (int testLevel : new HashSet<>(testLevels)) {
-            long levelContaining = testLevels.stream().filter(t -> t == testLevel).count();
-            combinedLevel += testLevel * levelContaining >> 1 + 1;
+        if (meta.hasDisplayName()) {
+            input = meta.getDisplayName();
+        } else {
+            String[] split = toEnchant.getType().name().toLowerCase().split("_");
+            input = Arrays.stream(split).map(StringUtils::capitalize).collect(Collectors.joining(" "));
         }
 
-        ItemMeta meta = toEnchant.getItemMeta();
-        Pattern pattern = Pattern.compile("\\[\\d+]$");
-        Matcher matcher = pattern.matcher(meta.getDisplayName());
-        int toEnchantItemLevel = 1;
+        int[] curItemLevel = new int[]{0};// Not thread-safe
+        Matcher matcher = pattern.matcher(input);
 
         if (matcher.matches()) {
-            toEnchantItemLevel = Integer.parseInt(matcher.group(1)) + combinedLevel;
-
-            if (toEnchantItemLevel > 50) {
-                toEnchantItemLevel = 50;
+            for (int i = 0; i < matcher.groupCount(); ++i) {
+                System.out.print(i + " ");
             }
 
-            meta.setDisplayName(matcher.replaceAll("[" + toEnchantItemLevel + "]"));
+            curItemLevel[0] = Integer.parseInt(matcher.group(1));
+            meta.setDisplayName(matcher.replaceAll("") + " [" + curItemLevel[0] + 1 + "]");
         } else {
-            meta.setDisplayName(meta.getDisplayName() + " [1]");
+            meta.setDisplayName(input + " [1]");
         }
 
-        // Can item be enchanted successfully?
-        double chance = getEnchantChance(plugin);
-        double need = plugin.getConfiguration().getConfig().getDouble("enchant_successful_rate");
+        LeagueCraft plugin = LeagueCraft.getPlugin(LeagueCraft.class);
 
-        if (chance < need) {
-            successful = false;
+        int[] testLevels = IntStream.rangeClosed(INGREDIENTS_START, INGREDIENTS_END).mapToObj(i -> inventory.getItem(i))
+                .filter(stack -> stack != null && plugin.stacks.stream().anyMatch(s -> s.isSimilar(stack)))
+                .mapToInt(stack -> Integer.parseInt(stack.getItemMeta().getLocalizedName().substring("leaguecraft_enchant_stone_level_".length())))
+                .toArray();
+        boolean canUpgrade = testLevels.length == 3 && Arrays.stream(testLevels).allMatch(i -> i == curItemLevel[0] + 1);
+
+        if (!canUpgrade) {
+            resetTimer = true;
             return;
         }
+
+        if (!timer.isDelayComplete(5000L)) {
+            for (int i = 12; i < 15; ++i) {
+                if (damage > 14) {
+                    damage = 0;
+                }
+
+                inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE, 1, damage));
+                ++damage;
+            }
+
+            return;
+        }
+
+        // Remove upgrade stones
+        IntStream.rangeClosed(INGREDIENTS_START, INGREDIENTS_END).forEach(i -> inventory.setItem(i, null));
+
+        // Can item be enchanted successfully?
+//        double chance = getEnchantChance(plugin);
+//        double need = plugin.getConfiguration().getConfig().getDouble("enchant_successful_rate");
+//
+//        if (chance < need) {
+//            return;
+//        }
 
         // Should the enchanter keep the input item?
         ItemStack keep = inventory.getItem(KEEP_ENCHANT);
 
-        if (keep == null || !keep.isSimilar(plugin.enchantKeepStone)) {
+        if (!plugin.enchantKeepStone.isSimilar(keep)) {
             inventory.setItem(TO_ENCHANT, null);
         }
 
-        // Calculate the remaining level after enchanted
-        int remainLevel = combinedLevel - toEnchantItemLevel;
-
-        if (remainLevel > 0) {
-            for (int i = INGREDIENTS_START; i <= INGREDIENTS_END; ++i) {
-                if (inventory.getItem(i) != null) {
-                    continue;
-                }
-
-                for (int j = plugin.enchantStoneLevels.length - 1; j >= 0; ++j) {
-                    ItemStack enchantStone = plugin.enchantStoneLevels[j];
-                    int level = Integer.parseInt(enchantStone.getItemMeta().getLocalizedName().substring("leaguecraft_enchant_stone_level_".length()));
-
-                    if (level == remainLevel) {
-                        inventory.setItem(i, enchantStone);
-                        remainLevel -= level;
-                    }
-
-                    if (remainLevel == 0) {
-                        break;
-                    }
-                }
-            }
+        if (meta.hasEnchant(Enchantment.DAMAGE_ALL)) {
+            int lastEnchantLevel = meta.getEnchantLevel(Enchantment.DAMAGE_ALL);
+            meta.removeEnchant(Enchantment.DAMAGE_ALL);
+            meta.addEnchant(Enchantment.DAMAGE_ALL, lastEnchantLevel + 1, true);
         } else {
-            for (int i = INGREDIENTS_START; i <= INGREDIENTS_END; ++i) {
-                if (inventory.getItem(i) != null) {
-                    inventory.setItem(i, null);
-                }
-            }
+            meta.addEnchant(Enchantment.DAMAGE_ALL, 1, true);
+        }
+
+        if (meta.hasEnchant(Enchantment.DAMAGE_UNDEAD)) {
+            int lastEnchantLevel = meta.getEnchantLevel(Enchantment.DAMAGE_UNDEAD);
+            meta.removeEnchant(Enchantment.DAMAGE_UNDEAD);
+            meta.addEnchant(Enchantment.DAMAGE_UNDEAD, lastEnchantLevel + 1, true);
+        } else {
+            meta.addEnchant(Enchantment.DAMAGE_UNDEAD, 1, true);
+        }
+
+        for (int i = 12; i < 15; ++i) {
+            HELPER_SLOTS.add(i);
+            inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE));
         }
 
         toEnchant.setItemMeta(meta);
         inventory.setItem(OUTPUT, toEnchant);
+        resetTimer = true;
     }
 
     @Override
     public boolean canWork() {
-        if (inventory.getItem(TO_ENCHANT) == null) {
-            successful = true;
-            return false;
+        if (inventory.getItem(TO_ENCHANT) != null && inventory.getItem(OUTPUT) == null) {
+            return true;
         }
 
-        return successful && inventory.getItem(TO_ENCHANT) != null && inventory.getItem(OUTPUT) == null;
+        for (int i = 12; i < 15; ++i) {
+            HELPER_SLOTS.add(i);
+            inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE));
+        }
+
+        return false;
     }
 
     private void addItemMatrix0(int start, short center, short damage) {
         int offset = start;
 
-        for (int row = 0; row < 2; ++row) {
+        for (int row = 0; row < 3; ++row) {
             for (int i = offset; i < offset + 3; ++i) {
                 if (i == center) {
                     continue;
                 }
 
                 inventory.setItem(i, new ItemStack(Material.STAINED_GLASS_PANE, 1, damage));
+                HELPER_SLOTS.add(i);
             }
 
             offset += 9;
@@ -173,6 +221,12 @@ public class BlockEnchanter extends BlockMachine {
     }
 
     /* Callbacks */
+
+    @Override
+    public void onMachinePlaced(Player player, ItemStack heldItem) {
+        timer.reset();
+    }
+
     @Override
     public boolean onInventoryInteract(ClickType clickType, InventoryAction action, InventoryType.SlotType slotType, ItemStack clicked, ItemStack cursor, int slot, InventoryView view, HumanEntity player) {
         return HELPER_SLOTS.contains(slot) && clicked.getType() == Material.STAINED_GLASS_PANE;
