@@ -1,2 +1,2 @@
 # Enchanter
-Plugin for mine j do
+Plugin for mine
